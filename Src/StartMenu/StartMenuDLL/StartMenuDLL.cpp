@@ -3830,6 +3830,16 @@ if (!g_bTrimHooks)
 						CMD_OPEN,
 						CMD_OPEN_ALL,
 						CMD_EXPLORER,
+						CMD_SHUTDOWN,
+						CMD_RESTART,
+						CMD_RUN,
+						CMD_CMD,
+						CMD_CMD_ADMIN,
+						CMD_POWERSHELL,
+						CMD_POWERSHELL_ADMIN,
+						CMD_DRIVEMGMT,
+						CMD_EVENTVIEWER,
+						CMD_DEVMGMT
 					};
 
 					// right-click on the start button - open the context menu (Settings, Help, Exit)
@@ -3837,10 +3847,12 @@ if (!g_bTrimHooks)
 					CString title=LoadStringEx(IDS_MENU_TITLE);
 					if (!title.IsEmpty())
 					{
+                        /*
 						AppendMenu(menu,MF_STRING,0,title);
 						EnableMenuItem(menu,0,MF_BYPOSITION|MF_DISABLED);
 						SetMenuDefaultItem(menu,0,TRUE);
 						AppendMenu(menu,MF_SEPARATOR,0,0);
+                        */
 					}
 					int count0=GetMenuItemCount(menu);
 					if (GetSettingBool(L"EnableExplorer"))
@@ -3852,10 +3864,27 @@ if (!g_bTrimHooks)
 							AppendMenu(menu,MF_STRING,CMD_OPEN_ALL,FindTranslation(L"Menu.OpenAll",L"O&pen All Users"));
 						AppendMenu(menu,MF_SEPARATOR,0,0);
 					}
+
+					AppendMenu(menu, MF_STRING, CMD_DEVMGMT, L"Device Manager");
+					AppendMenu(menu, MF_STRING, CMD_DRIVEMGMT, L"Disk Management");
+					AppendMenu(menu, MF_STRING, CMD_EVENTVIEWER, L"Event Viewer");
+					AppendMenu(menu, MF_SEPARATOR, 0, 0);
+
+					AppendMenu(menu, MF_STRING, CMD_CMD, L"Command Prompt");
+					AppendMenu(menu, MF_STRING, CMD_CMD_ADMIN, L"Command Prompt (Admin)");
+					AppendMenu(menu, MF_STRING, CMD_POWERSHELL, L"Powershell");
+					AppendMenu(menu, MF_STRING, CMD_POWERSHELL_ADMIN, L"Powershell (Admin)");
+					AppendMenu(menu, MF_STRING, CMD_RUN, L"Run");
+					AppendMenu(menu, MF_SEPARATOR, 0, 0);
+
+					AppendMenu(menu, MF_STRING, CMD_SHUTDOWN, L"Shutdown");
+					AppendMenu(menu, MF_STRING, CMD_RESTART, L"Restart");
+					AppendMenu(menu, MF_SEPARATOR, 0, 0);
+
 					if (GetSettingBool(L"EnableSettings"))
 						AppendMenu(menu,MF_STRING,CMD_SETTINGS,FindTranslation(L"Menu.MenuSettings",L"Settings"));
-					if (HasHelp())
-						AppendMenu(menu,MF_STRING,CMD_HELP,FindTranslation(L"Menu.MenuHelp",L"Help"));
+					//if (HasHelp())
+					//	AppendMenu(menu,MF_STRING,CMD_HELP,FindTranslation(L"Menu.MenuHelp",L"Help"));
 					if (GetSettingBool(L"EnableExit"))
 					{
 						AppendMenu(menu,MF_STRING,CMD_EXIT,FindTranslation(L"Menu.MenuExit",L"Exit"));
@@ -3875,6 +3904,93 @@ if (!g_bTrimHooks)
 						int res=TrackPopupMenu(menu,TPM_RIGHTBUTTON|TPM_RETURNCMD|(IsLanguageRTL()?TPM_LAYOUTRTL:0),pt0.x,pt0.y,0,msg->hwnd,NULL);
 						DestroyMenu(menu);
 						g_bInMenu=false;
+						if (res == CMD_DEVMGMT)
+						{
+							ShellExecute(NULL, NULL, L"C:\\WINDOWS\\System32\\devmgmt.msc", NULL, NULL, SW_SHOWNORMAL);
+						}
+						if (res == CMD_DRIVEMGMT)
+						{
+							ShellExecute(NULL, NULL, L"C:\\WINDOWS\\System32\\diskmgmt.msc", NULL, NULL, SW_SHOWNORMAL);
+						}
+						if (res == CMD_EVENTVIEWER)
+						{
+							ShellExecute(NULL, NULL, L"C:\\WINDOWS\\System32\\eventvwr.msc", NULL, NULL, SW_SHOWNORMAL);
+						}
+						if (res == CMD_CMD)
+						{
+							TCHAR szFolderPath[MAX_PATH];
+							if (!SHGetSpecialFolderPath(NULL, szFolderPath, CSIDL_PROFILE, FALSE))
+							{
+								ShellExecute(NULL, NULL, L"C:\\WINDOWS\\System32\\cmd.exe", NULL, NULL, SW_SHOWNORMAL);
+							}
+							else
+							{
+								ShellExecute(NULL, NULL, L"C:\\WINDOWS\\System32\\cmd.exe", NULL, szFolderPath, SW_SHOWNORMAL);
+							}
+						}
+						if (res == CMD_CMD_ADMIN)
+						{
+							ShellExecute(NULL, L"runas", L"C:\\WINDOWS\\System32\\cmd.exe", NULL, NULL, SW_SHOWNORMAL);
+						}
+						if (res == CMD_POWERSHELL)
+						{
+							TCHAR szFolderPath[MAX_PATH];
+							if (!SHGetSpecialFolderPath(NULL, szFolderPath, CSIDL_PROFILE, FALSE))
+							{
+								ShellExecute(NULL, NULL, L"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", NULL, NULL, SW_SHOWNORMAL);
+							}
+							else
+							{
+								ShellExecute(NULL, NULL, L"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", NULL, szFolderPath, SW_SHOWNORMAL);
+							}
+						}
+						if (res == CMD_POWERSHELL_ADMIN)
+						{
+							ShellExecute(NULL, L"runas", L"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", NULL, NULL, SW_SHOWNORMAL);
+						}
+						if (res == CMD_RUN)
+						{
+							ShellExecute(NULL, NULL, L"shell:::{2559a1f3-21d7-11d4-bdaf-00c04f60b9f0}", NULL, NULL, SW_SHOWNORMAL);
+						}
+						if (res == CMD_SHUTDOWN)
+						{
+							int mb_result = MessageBox(NULL, L"Are you sure you want to shutdown?", L"Shutdown", MB_YESNO | MB_SYSTEMMODAL | MB_ICONQUESTION | MB_DEFBUTTON1);
+
+							if (mb_result == IDYES)
+							{
+								HANDLE hToken;
+								if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+								{
+									TOKEN_PRIVILEGES tp = { 1 };
+									if (LookupPrivilegeValue(NULL, L"SeShutdownPrivilege", &tp.Privileges[0].Luid))
+										tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+									AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL);
+									CloseHandle(hToken);
+								}
+								ExitWindowsEx(EWX_SHUTDOWN | 0x00100000, SHTDN_REASON_FLAG_PLANNED);
+							}
+						}
+						if (res == CMD_RESTART)
+						{
+							int mb_result = MessageBox(NULL, L"Are you sure you want to restart?", L"Restart", MB_YESNO | MB_SYSTEMMODAL | MB_ICONQUESTION | MB_DEFBUTTON1);
+
+							if (mb_result == IDYES)
+							{
+								UINT flags = EWX_REBOOT;
+								if (GetWinVersion() >= WIN_VER_WIN8)
+									flags |= 0x00100000;
+								HANDLE hToken;
+								if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+								{
+									TOKEN_PRIVILEGES tp = { 1 };
+									if (LookupPrivilegeValue(NULL, L"SeShutdownPrivilege", &tp.Privileges[0].Luid))
+										tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+									AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(TOKEN_PRIVILEGES), NULL, NULL);
+									CloseHandle(hToken);
+								}
+								ExitWindowsEx(flags, SHTDN_REASON_FLAG_PLANNED);
+							}
+						}
 						if (res==CMD_SETTINGS)
 						{
 							EditSettings(false,0);
